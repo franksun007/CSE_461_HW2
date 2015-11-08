@@ -17,8 +17,8 @@ hs_err_pid*
 
 *.ipr
 *.iws
-/out/
-target/
+./out/
+./target/
 
 .idea_modules/
 
