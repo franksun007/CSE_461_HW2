@@ -22,7 +22,6 @@ if [ $port \< "1100" -o $port \> "49151" ]; then
 	exit 1
 fi
 
-echo $port
 
 mvn compile;
 mvn exec:java -Dexec.mainClass="Proxy"
