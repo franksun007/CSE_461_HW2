@@ -9,7 +9,6 @@ import org.joda.time.format.DateTimeFormat;
 import java.io.PrintStream;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.time.format.DateTimeFormatter;
 
 public class Proxy {
 
@@ -43,8 +42,8 @@ public class Proxy {
             System.exit(1);
         }
         DateTime curTime = DateTime.now(DateTimeZone.forID("America/Los_Angeles"));
-        org.joda.time.format.DateTimeFormatter fmt = DateTimeFormat.forPattern("dd MMM");
-        OUTPUT.println(curTime);
+        org.joda.time.format.DateTimeFormatter fmt = DateTimeFormat.forPattern("dd MMM kk:mm:ss");
+        OUTPUT.println(fmt.print(curTime));
 
 
         try {
