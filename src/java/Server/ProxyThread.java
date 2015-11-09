@@ -1,10 +1,16 @@
 package Server;
 
+import Utils.Utilities;
+
 import java.io.DataInput;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.PrintStream;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Scanner;
 
 /**
  * Created by chenfs on 11/8/15.
@@ -24,11 +30,20 @@ public class ProxyThread extends Thread {
         try {
             byte[] data = new byte[DEFAULT_PACKET_SIZE];
             DataInputStream fromClient = new DataInputStream(socket.getInputStream());
-            int actualLength = fromClient.read(data);
 
-            for (int i = 0; i < actualLength; i++) {
-                System.out.print(data[i]);
+            StringBuilder request = new StringBuilder();
+
+            int actualLength = fromClient.read(data);
+            request.append(new String(data, "ascii"));
+
+            while (fromClient.available() > 0) {
+                actualLength = fromClient.read(data);
+                request.append(new String(data, "ascii"));
             }
+
+            List<String> content = new ArrayList<String>(Arrays.asList(request.toString().split("\n")));
+
+            OUTPUT.println(Utilities.getCurrentTime() + " - >>> " + content.get(0));
 
         } catch (Exception e) {
             closeSocket();

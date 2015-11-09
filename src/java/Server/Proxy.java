@@ -1,14 +1,13 @@
 package Server;
 
 
-import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
-import org.joda.time.LocalTime;
-import org.joda.time.format.DateTimeFormat;
+import Utils.Utilities;
 
 import java.io.PrintStream;
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.UnknownHostException;
 
 public class Proxy {
 
@@ -41,10 +40,16 @@ public class Proxy {
             e.printStackTrace();
             System.exit(1);
         }
-        DateTime curTime = DateTime.now(DateTimeZone.forID("America/Los_Angeles"));
-        org.joda.time.format.DateTimeFormatter fmt = DateTimeFormat.forPattern("dd MMM kk:mm:ss");
-        OUTPUT.println(fmt.print(curTime));
 
+
+        try {
+            OUTPUT.println(Utilities.getCurrentTime() + " - Proxy listening on "
+                    + InetAddress.getLocalHost().getHostAddress() + ":" + serverPort);
+        } catch (UnknownHostException e) {
+            OUTPUT.println("Cannot get the ip address of the host");
+            e.printStackTrace();
+            System.exit(1);
+        }
 
         try {
             for (; ; ) {

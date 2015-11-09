@@ -1,2 +1,3 @@
-Server/Proxy.class
+Utils/Utilities.class
 Server/ProxyThread.class
+Server/Proxy.class
