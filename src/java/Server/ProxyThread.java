@@ -7,6 +7,8 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.PrintStream;
 import java.net.Socket;
+import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -41,10 +43,54 @@ public class ProxyThread extends Thread {
                 request.append(new String(data, "ascii"));
             }
 
-            List<String> content = new ArrayList<String>(Arrays.asList(request.toString().split("\n")));
+            String[] content = request.toString().split("\r?\n");
 
-            OUTPUT.println(Utilities.getCurrentTime() + " - >>> " + content.get(0));
+            OUTPUT.println(Utilities.getCurrentTime() + " - >>> "
+                    + content[0].substring(0, content[0].indexOf("HTTP/1.1")));
 
+            String host = "";
+            int port = -1;
+
+            for (int i = 0; i < content.length; i++) {
+                if (content[i].toLowerCase().contains("host")) {
+                    host = content[i].substring(content[i].indexOf(':') + 2);
+                    int indexOfColon = host.indexOf(':');
+                    port = indexOfColon != -1 ? Integer.parseInt(host.substring(indexOfColon + 1)) : 80;
+                    host = indexOfColon != -1 ? host.substring(0, indexOfColon) : host;
+                }
+                if (content[i].contains("HTTP/1.1")) {
+                    content[i] = content[i].substring(0, content[i].indexOf("HTTP/1.1")) + "HTTP/1.0";
+                }
+                if (content[i].contains("Connection: keep-alive")) {
+                    content[i] = "Connection: close";
+                }
+            }
+
+            System.out.println(host);
+            System.out.println(host);
+            System.out.println(host);
+
+            System.out.println(port);
+
+            request.setLength(0);
+            for (int i = 0; i < content.length; i++) {
+                request.append(content[i]).append("\r\n");
+            }
+            ByteBuffer reqh = ByteBuffer.allocate(request.length());
+            reqh.put(request.toString().getBytes(Charset.forName("ascii")));
+
+            Socket talkToServer = new Socket(host, port);
+
+            DataOutputStream toServer = new DataOutputStream(talkToServer.getOutputStream());
+            toServer.write(reqh.array(), 0, reqh.array().length);
+            toServer.flush();
+
+
+            DataInputStream toClient = new DataInputStream(talkToServer.getInputStream());
+            data = new byte[DEFAULT_PACKET_SIZE];
+            toClient.read(data);
+
+            System.out.println(new String(data, "ascii"));
         } catch (Exception e) {
             closeSocket();
             OUTPUT.println("Unexpected exception");
