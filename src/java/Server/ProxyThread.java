@@ -35,11 +35,11 @@ public class ProxyThread extends Thread {
 
             StringBuilder request = new StringBuilder();
 
-            int actualLength = fromClient.read(data);
+            fromClient.read(data);
             request.append(new String(data, "ascii"));
 
             while (fromClient.available() > 0) {
-                actualLength = fromClient.read(data);
+                fromClient.read(data);
                 request.append(new String(data, "ascii"));
             }
 
@@ -81,15 +81,18 @@ public class ProxyThread extends Thread {
 
             Socket talkToServer = new Socket(host, port);
 
-            DataOutputStream toServer = new DataOutputStream(talkToServer.getOutputStream());
-            toServer.write(reqh.array(), 0, reqh.array().length);
-            toServer.flush();
+            DataOutputStream toServerProxy = new DataOutputStream(talkToServer.getOutputStream());
+            toServerProxy.write(reqh.array(), 0, reqh.array().length);
+            toServerProxy.flush();
 
 
-            DataInputStream toClient = new DataInputStream(talkToServer.getInputStream());
+            DataInputStream toClientProxy = new DataInputStream(talkToServer.getInputStream());
             data = new byte[DEFAULT_PACKET_SIZE];
-            toClient.read(data);
+            toClientProxy.read(data);
 
+
+            DataOutputStream toClient = new DataOutputStream(socket.getOutputStream());
+            toClient.write(data);
             System.out.println(new String(data, "ascii"));
         } catch (Exception e) {
             closeSocket();
