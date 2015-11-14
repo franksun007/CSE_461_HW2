@@ -30,82 +30,7 @@ public class ProxyThread extends Thread {
     @Override
     public void run() {
         try {
-            byte[] data = new byte[DEFAULT_PACKET_SIZE];
-            DataInputStream fromClient = new DataInputStream(socket.getInputStream());
 
-            StringBuilder request = new StringBuilder();
-
-            fromClient.read(data);
-            request.append(new String(data, "ascii"));
-
-            while (fromClient.available() > 0) {
-                    fromClient.read(data);
-                request.append(new String(data, "ascii"));
-            }
-
-
-//            System.out.println(request.toString());
-
-            String[] content = request.toString().split("\r?\n");
-
-//            System.out.println("Request this: " + request.hashCode() + "\n" + request + "\nend");
-
-            if (content.length <= 1) {
-                this.interrupt();
-                socket.close();
-                return;
-            }
-            OUTPUT.println(Utilities.getCurrentTime() + " - >>> "
-                    + content[0].substring(0, content[0].indexOf("HTTP/1.1")));
-
-            String host = "";
-            int port = -1;
-
-
-            for (int i = 0; i < content.length; i++) {
-                if (content[i].toLowerCase().contains("host")) {
-                    host = content[i].substring(content[i].indexOf(':') + 2);
-                    int indexOfColon = host.indexOf(':');
-                    port = indexOfColon != -1 ? Integer.parseInt(host.substring(indexOfColon + 1)) : 80;
-                    host = indexOfColon != -1 ? host.substring(0, indexOfColon) : host;
-                }
-                if (content[i].contains("HTTP/1.1")) {
-                    content[i] = content[i].substring(0, content[i].indexOf("HTTP/1.1")) + "HTTP/1.0";
-                }
-                if (content[i].contains("Connection: keep-alive")) {
-                    content[i] = "Connection: close";
-                }
-            }
-
-//            System.out.println(host);
-//            System.out.println(host);
-//            System.out.println(host);
-
-//            System.out.println(port);
-
-            request.setLength(0);
-            for (int i = 0; i < content.length; i++) {
-                request.append(content[i]).append("\r\n");
-            }
-            ByteBuffer reqh = ByteBuffer.allocate(request.length());
-            reqh.put(request.toString().getBytes(Charset.forName("ascii")));
-
-            Socket talkToServer = new Socket(host, port);
-
-            DataOutputStream toServerProxy = new DataOutputStream(talkToServer.getOutputStream());
-            toServerProxy.write(reqh.array(), 0, reqh.array().length);
-            toServerProxy.flush();
-
-
-            DataInputStream toClientProxy = new DataInputStream(talkToServer.getInputStream());
-            data = new byte[DEFAULT_PACKET_SIZE];
-            DataOutputStream toClient = new DataOutputStream(socket.getOutputStream());
-            while (toClientProxy.read(data) > 0) {
-                toClient.write(data);
-                //toClient.flush();
-            }
-
-////            System.out.println(new String(data, "ascii"));
         } catch (Exception e) {
             closeSocket();
             OUTPUT.println("Unexpected exception");
@@ -116,7 +41,7 @@ public class ProxyThread extends Thread {
 
     private void closeSocket() {
         try {
-            socket.close();
+            this.socket.close();
         } catch (Exception e) {
             OUTPUT.println("Socket closure failed:");
             OUTPUT.println(socket);
