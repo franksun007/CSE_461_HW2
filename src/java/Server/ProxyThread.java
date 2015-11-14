@@ -36,11 +36,11 @@ public class ProxyThread extends Thread {
 
             StringBuilder request = new StringBuilder();
 
-            fromClient.read(data);
+            int actualLength = fromClient.read(data);
             request.append(new String(data, "ascii"));
 
             while (fromClient.available() > 0) {
-                fromClient.read(data);
+                actualLength = fromClient.read(data);
                 request.append(new String(data, "ascii"));
             }
 
@@ -78,14 +78,15 @@ public class ProxyThread extends Thread {
 
             Socket talkToServer = new Socket(host, port);
 
-            DataOutputStream toServerProxy = new DataOutputStream(talkToServer.getOutputStream());
-            toServerProxy.write(reqh.array(), 0, reqh.array().length);
-            toServerProxy.flush();
+            DataOutputStream toServer = new DataOutputStream(talkToServer.getOutputStream());
+            toServer.write(reqh.array(), 0, reqh.array().length);
+            toServer.flush();
 
             System.out.println("Check point");
 
-            DataInputStream toClientProxy = new DataInputStream(talkToServer.getInputStream());
+            DataInputStream toClient = new DataInputStream(talkToServer.getInputStream());
             data = new byte[DEFAULT_PACKET_SIZE];
+<<<<<<< HEAD
             DataOutputStream toClient = new DataOutputStream(socket.getOutputStream());
 //            toClientProxy.read(data);
 //            toClient.write(data);
@@ -96,6 +97,11 @@ public class ProxyThread extends Thread {
             }
 
 
+=======
+            toClient.read(data);
+
+            System.out.println(new String(data, "ascii"));
+>>>>>>> parent of 40b4e7b... what the fuck is happending
         } catch (Exception e) {
             closeSocket();
             OUTPUT.println("Unexpected exception");
