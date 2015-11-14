@@ -39,17 +39,28 @@ public class ProxyThread extends Thread {
             request.append(new String(data, "ascii"));
 
             while (fromClient.available() > 0) {
-                fromClient.read(data);
+                    fromClient.read(data);
                 request.append(new String(data, "ascii"));
             }
 
+
+//            System.out.println(request.toString());
+
             String[] content = request.toString().split("\r?\n");
 
+//            System.out.println("Request this: " + request.hashCode() + "\n" + request + "\nend");
+
+            if (content.length <= 1) {
+                this.interrupt();
+                socket.close();
+                return;
+            }
             OUTPUT.println(Utilities.getCurrentTime() + " - >>> "
                     + content[0].substring(0, content[0].indexOf("HTTP/1.1")));
 
             String host = "";
             int port = -1;
+
 
             for (int i = 0; i < content.length; i++) {
                 if (content[i].toLowerCase().contains("host")) {
@@ -66,11 +77,11 @@ public class ProxyThread extends Thread {
                 }
             }
 
-            System.out.println(host);
-            System.out.println(host);
-            System.out.println(host);
+//            System.out.println(host);
+//            System.out.println(host);
+//            System.out.println(host);
 
-            System.out.println(port);
+//            System.out.println(port);
 
             request.setLength(0);
             for (int i = 0; i < content.length; i++) {
@@ -88,12 +99,13 @@ public class ProxyThread extends Thread {
 
             DataInputStream toClientProxy = new DataInputStream(talkToServer.getInputStream());
             data = new byte[DEFAULT_PACKET_SIZE];
-            toClientProxy.read(data);
-
-
             DataOutputStream toClient = new DataOutputStream(socket.getOutputStream());
-            toClient.write(data);
-            System.out.println(new String(data, "ascii"));
+            while (toClientProxy.read(data) > 0) {
+                toClient.write(data);
+                //toClient.flush();
+            }
+
+////            System.out.println(new String(data, "ascii"));
         } catch (Exception e) {
             closeSocket();
             OUTPUT.println("Unexpected exception");
