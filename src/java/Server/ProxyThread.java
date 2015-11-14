@@ -7,6 +7,7 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.PrintStream;
 import java.net.Socket;
+import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
@@ -49,22 +50,18 @@ public class ProxyThread extends Thread {
                     + content[0].substring(0, content[0].indexOf("HTTP/1.1")));
 
             String host = "";
+
+            String url = content[0].split("[ \t]+")[1];
+            String[] urlComponent = url.split(":");
             int port = -1;
 
-            for (int i = 0; i < content.length; i++) {
-                if (content[i].toLowerCase().contains("host")) {
-                    host = content[i].substring(content[i].indexOf(':') + 2);
-                    int indexOfColon = host.indexOf(':');
-                    port = indexOfColon != -1 ? Integer.parseInt(host.substring(indexOfColon + 1)) : 80;
-                    host = indexOfColon != -1 ? host.substring(0, indexOfColon) : host;
-                }
-                if (content[i].contains("HTTP/1.1")) {
-                    content[i] = content[i].substring(0, content[i].indexOf("HTTP/1.1")) + "HTTP/1.0";
-                }
-                if (content[i].contains("Connection: keep-alive")) {
-                    content[i] = "Connection: close";
-                }
+            if (urlComponent[0].equals("http")) {
+                port = 80;
+            } else {
+                port = 443;
             }
+
+            System.out.println(host + ":" + port);
 
             System.out.println(host);
             System.out.println(host);
@@ -85,15 +82,20 @@ public class ProxyThread extends Thread {
             toServerProxy.write(reqh.array(), 0, reqh.array().length);
             toServerProxy.flush();
 
+            System.out.println("Check point");
 
             DataInputStream toClientProxy = new DataInputStream(talkToServer.getInputStream());
             data = new byte[DEFAULT_PACKET_SIZE];
-            toClientProxy.read(data);
-
-
             DataOutputStream toClient = new DataOutputStream(socket.getOutputStream());
-            toClient.write(data);
-            System.out.println(new String(data, "ascii"));
+//            toClientProxy.read(data);
+//            toClient.write(data);
+//            System.out.println(new String(data, "ascii"));
+
+            while (toClientProxy.read(data) > 0) {
+                toClient.write(data);
+            }
+
+
         } catch (Exception e) {
             closeSocket();
             OUTPUT.println("Unexpected exception");
