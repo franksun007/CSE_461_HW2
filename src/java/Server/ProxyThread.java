@@ -1,9 +1,12 @@
 package Server;
 
 import Utils.Utilities;
+import com.sun.security.ntlm.Server;
 
 import java.io.*;
 import java.net.Socket;
+import java.io.OutputStream;
+import java.io.InputStream;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
@@ -59,34 +62,19 @@ public class ProxyThread extends Thread {
     private void nonConnect(BufferedReader readIn, String firstLine) {
         String requestLine = firstLine;
         StringBuilder fullRequest = new StringBuilder();
-        int port = 0;
-        if (firstLine.contains("HTTP/1.1")) {
-            requestLine = firstLine.replaceAll("HTTP/1.1", "HTTP/1.0");
+
+        if (firstLine.toUpperCase().contains("HTTP/1.1")) {
+            requestLine = firstLine.replaceAll("HTTP/1.1", "HTTP/1.0").replaceAll("http/1.1", "http/1.0");
         }
-        fullRequest.append(requestLine);
+        fullRequest.append(requestLine + "\r\n");
         try {
+            int port = 0;
+            String serverAddr = "";
             requestLine = readIn.readLine();
             while (requestLine != null) {
                 if (requestLine.toLowerCase().startsWith("host")) {
-                    Scanner scan = new Scanner(firstLine);
-                    scan.next();
-                    String url = scan.next();
-                    URL aUrl = new URL(url);
-                    String serverAddr = requestLine.substring(6).trim();
-                    int portIdx = serverAddr.indexOf(":");
-                    if (portIdx > 0) {
-                        port = Integer.parseInt(serverAddr.substring(portIdx + 1));
-                    } else {
-                        if (aUrl.getPort() != -1) {
-                            port = aUrl.getPort();
-                        } else {
-                            if (firstLine.toLowerCase().contains("https://")) {
-                                port = 443;
-                            } else {
-                                port = 80;
-                            }
-                        }
-                    }
+                    port = getPort(firstLine, requestLine);
+                    serverAddr = requestLine.substring(6);
                 } else if (requestLine.toLowerCase().startsWith("connection:")) {
                     requestLine = "Connection: close";
                 } else if (requestLine.toLowerCase().startsWith("proxy-connection:")) {
@@ -98,13 +86,38 @@ public class ProxyThread extends Thread {
                 fullRequest.append(requestLine + "\r\n");
                 requestLine = readIn.readLine();
             }
-            System.out.println("request is " + fullRequest.toString() + "end of request");
-
-            sendToServer(port, serverAddr);
+            //System.out.println("request is " + fullRequest.toString() + "end of request");
+            System.out.println("server is " + serverAddr);
+            System.out.println("port is " + port);
+            OutputStream out = socket.getOutputStream();
+            sendToServer(port, serverAddr, fullRequest.toString(), out);
         } catch (Exception e) {
                 e.printStackTrace();
                 return;
         }
+    }
+
+    private void sendToServer(int port, String serverAddr, String fullRequest, OutputStream out) {
+        Socket socket2Server;
+        InputStream fromServer;
+        PrintWriter writeToServer;
+
+        try {
+            socket2Server = new Socket(serverAddr, port);
+            fromServer = socket2Server.getInputStream();
+            writeToServer = new PrintWriter(socket2Server.getOutputStream());
+            writeToServer.write(fullRequest);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private int getPort(String firstLine, String hostLine) {
+        int port = 80;
+        if (firstLine.toLowerCase().contains("https")) {
+            port = 443;
+        }
+        return port;
     }
 
     private void closeSocket() {
