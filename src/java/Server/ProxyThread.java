@@ -1,15 +1,8 @@
 package Server;
 
-import Utils.Utilities;
-
 import java.io.*;
 import java.net.Socket;
 import java.net.URL;
-import java.nio.ByteBuffer;
-import java.nio.charset.Charset;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 import java.util.Scanner;
 
 /**
@@ -42,7 +35,7 @@ public class ProxyThread extends Thread {
             System.out.println(firstLine);
 
             if (firstLine.toLowerCase().startsWith("connect")) {
-
+                connect(readIn, firstLine);
             } else {
                 // Non connect branch
                 nonConnect(readIn, firstLine);
@@ -56,6 +49,87 @@ public class ProxyThread extends Thread {
         }
     }
 
+    private void connect(BufferedReader reader, String firstLine) {
+
+        String requestLine = firstLine;
+        StringBuilder fullRequest = new StringBuilder();
+        String host = null;
+        int port = -1;
+
+        try {
+            if (firstLine.contains("HTTP/1.1")) {
+                requestLine = requestLine.replaceAll("HTTP/1.1", "HTTP/1.0");
+            }
+            fullRequest.append(requestLine);
+
+            requestLine = reader.readLine();
+            while (requestLine != null) {
+                if (requestLine.toLowerCase().contains("host")) {
+                    String[] contentSplit = requestLine.split(" ")[1].split(":[0-9]+");
+                    host = contentSplit[0];
+                    try {
+                        port = Integer.parseInt(contentSplit[1]);
+                    } catch (Exception e) {
+                        port = 443;
+                    }
+                    System.out.println(host);
+                } else if (requestLine.toLowerCase().contains("proxy-connection: keep-alive")) {
+                    requestLine = requestLine.replaceAll("keep-alive", "close");
+                } else if (requestLine.toLowerCase().contains("connection: keep-alive")) {
+                    requestLine = requestLine.replaceAll("keep-alive", "close");
+                } else if (requestLine.equals("")) {
+                    break;
+                }
+                fullRequest.append(requestLine + "\r\n");
+                requestLine = reader.readLine();
+            }
+            fullRequest.append("\r\n");
+
+            assert(host != null);
+            Socket proxySocket = new Socket(host, port);
+
+            InputStream clientToProxy = socket.getInputStream();
+            OutputStream proxyToClient = socket.getOutputStream();
+            proxyToClient.write("HTTP/1.1 200 OK\r\n\r\n".getBytes("ascii"));
+
+            OutputStream proxyToServer = proxySocket.getOutputStream();
+            InputStream serverToProxy = proxySocket.getInputStream();
+
+            proxyToServer.write(fullRequest.toString().getBytes("ascii"));
+            System.out.println(proxySocket.isClosed());
+
+            byte[] data = new byte[DEFAULT_PACKET_SIZE];
+
+            String response = "";
+
+            while (clientToProxy.read(data) > 0) {
+                response += new String(data, "ascii");
+                proxyToClient.write(data);
+            }
+            System.out.println(response);
+
+            if (!proxySocket.isClosed()) {
+                response = "";
+                while (serverToProxy.read(data) > 0) {
+                    response += new String(data, "ascii");
+                    proxyToClient.write(data);
+                }
+                System.out.println(response);
+            }
+
+
+
+//            String line = reader.readLine();
+//            while (line != null) {
+//                System.out.println(line);
+//                line = reader.readLine();
+//            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
     private void nonConnect(BufferedReader readIn, String firstLine) {
         String requestLine = firstLine;
         StringBuilder fullRequest = new StringBuilder();
@@ -63,7 +137,7 @@ public class ProxyThread extends Thread {
         if (firstLine.contains("HTTP/1.1")) {
             requestLine = firstLine.replaceAll("HTTP/1.1", "HTTP/1.0");
         }
-        fullRequest.append(requestLine);
+        fullRequest.append(requestLine + "\r\n");
         try {
             requestLine = readIn.readLine();
             while (requestLine != null) {
@@ -100,7 +174,7 @@ public class ProxyThread extends Thread {
             }
             System.out.println("request is " + fullRequest.toString() + "end of request");
 
-            sendToServer(port, serverAddr);
+            // sendToServer(port, serverAddr);
         } catch (Exception e) {
                 e.printStackTrace();
                 return;
