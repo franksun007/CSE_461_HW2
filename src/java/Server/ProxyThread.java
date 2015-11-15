@@ -184,13 +184,17 @@ public class ProxyThread extends Thread {
 
 
             Socket proxySocket = new Socket(host, port);
-            DataInputStream fromServerToProxy = new DataInputStream(proxySocket.getInputStream());
+            InputStream fromServerToProxy = proxySocket.getInputStream();
+
             DataOutputStream fromProxyToServer = new DataOutputStream(proxySocket.getOutputStream());
 
             DataInputStream fromClientToProxy = new DataInputStream(this.socket.getInputStream());
+
+
             DataOutputStream fromProxyToClient = new DataOutputStream(this.socket.getOutputStream());
 
             fromProxyToServer.write(fullRequest.getBytes("ascii"));
+            fromProxyToServer.flush();
 
             byte[] data = new byte[DEFAULT_PACKET_SIZE];
             StringBuilder dataTrans = new StringBuilder();
@@ -214,11 +218,15 @@ public class ProxyThread extends Thread {
 //                System.out.println(dataTrans.toString());
 
 //            while (fromServerToProxy.read(data) > 0) {
-            while (fromServerToProxy.read(data) > 0) {
+            int read = fromServerToProxy.read(data);
+            while (read != -1) {
 //                System.out.println(new String(data, "ascii"));
 //                fromProxyToClient.write(new String(data, "ascii").getBytes("ascii"));
-//                fromServerToProxy.read(data);
-                fromProxyToClient.write(data);
+//                fromServerToPr
+// oxy.read(data);
+                fromProxyToClient.write(data, 0, read);
+                fromProxyToClient.flush();
+                read = fromServerToProxy.read(data);
             }
 
 
