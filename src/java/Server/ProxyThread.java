@@ -1,6 +1,7 @@
 package Server;
 
 import java.io.*;
+import java.net.ProxySelector;
 import java.net.Socket;
 import java.net.URL;
 import java.util.Scanner;
@@ -45,9 +46,10 @@ public class ProxyThread extends Thread {
             if (firstLine.contains("HTTP/1.1")) {
                 requestLine = requestLine.replaceAll("HTTP/1.1", "HTTP/1.0");
             }
-            if (firstLine.contains("connect")) {
+            if (firstLine.toLowerCase().contains("connect")) {
                 port = 443;
             }
+
             fullRequest.append(requestLine + "\r\n");
 
             requestLine = readIn.readLine();
@@ -55,12 +57,6 @@ public class ProxyThread extends Thread {
                 if (requestLine.toLowerCase().contains("host")) {
                     String[] contentSplit = requestLine.split(" ")[1].split(":[0-9]+");
                     host = contentSplit[0];
-                    try {
-                        port = Integer.parseInt(contentSplit[1]);
-                    } catch (Exception e) {
-                        // do nothing?
-                    }
-                } else if (requestLine.toLowerCase().contains("proxy-connection: keep-alive")) {
                     requestLine = requestLine.replaceAll("keep-alive", "close");
                 } else if (requestLine.toLowerCase().contains("connection: keep-alive")) {
                     requestLine = requestLine.replaceAll("keep-alive", "close");
@@ -73,7 +69,7 @@ public class ProxyThread extends Thread {
             fullRequest.append("\r\n");
 
             if (port == 443) {
-                // connect(host, port, fullRequest);
+                connect(host, port);
             } else {
                 // Non connect branch
                 nonConnect(host, port, fullRequest.toString());
@@ -85,6 +81,67 @@ public class ProxyThread extends Thread {
             e.printStackTrace();
         }
     }
+
+    private void connect(String host, int port) {
+
+        DataOutputStream fromProxyToClient;
+        Socket proxySocket = null;
+        try {
+            fromProxyToClient = new DataOutputStream(this.socket.getOutputStream());
+
+            try {
+                proxySocket = new Socket(host, port);
+            } catch (Exception e) {
+                fromProxyToClient.write("HTTP/1.1 502 BAD GATEWAY\r\n\r\n".getBytes("ascii"));
+            }
+
+            System.out.println("Socket established");
+            assert (proxySocket != null);
+
+            fromProxyToClient.write("HTTP/1.0 200 OK\r\n\r\n".getBytes("ascii"));
+            fromProxyToClient.flush();
+
+            InputStream fromClientToProxy = this.socket.getInputStream();
+
+            byte[] data = new byte[DEFAULT_PACKET_SIZE];
+            DataOutputStream fromProxyToServer = new DataOutputStream(proxySocket.getOutputStream());
+            InputStream fromServerToProxy = proxySocket.getInputStream();
+
+            StringBuilder req = new StringBuilder();
+
+            while (!proxySocket.isClosed()) {
+                int read = fromClientToProxy.read(data);
+                req.setLength(0);
+                while (read != -1) {
+                    System.out.println(read);
+                    req.append(new String(data, 0, read, "ascii"));
+                    System.out.println("wtf");
+                    read = fromClientToProxy.read(data);
+                    System.out.println(read);
+                }
+                System.out.println(req.toString());
+
+                if (req.length() != 0) {
+                    fromProxyToServer.write(req.toString().getBytes("ascii"));
+                    fromProxyToServer.flush();
+                }
+
+                System.out.println("WHAT THE FUCK");
+                read = fromClientToProxy.read(data);
+
+                while (read != -1) {
+                    fromProxyToClient.write(data, 0, read);
+                    fromProxyToClient.flush();
+                    read = fromServerToProxy.read(data);
+                }
+            }
+
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
     /*
     private void connect(BufferedReader reader, String firstLine) {
 
@@ -188,42 +245,15 @@ public class ProxyThread extends Thread {
 
             DataOutputStream fromProxyToServer = new DataOutputStream(proxySocket.getOutputStream());
 
-            DataInputStream fromClientToProxy = new DataInputStream(this.socket.getInputStream());
-
-
             DataOutputStream fromProxyToClient = new DataOutputStream(this.socket.getOutputStream());
 
             fromProxyToServer.write(fullRequest.getBytes("ascii"));
             fromProxyToServer.flush();
 
             byte[] data = new byte[DEFAULT_PACKET_SIZE];
-            StringBuilder dataTrans = new StringBuilder();
 
-
-//            fromServerToProxy.read(data);
-//            dataTrans.append(new String(data, "ascii"));
-//            System.out.println(dataTrans.toString());
-
-            /*
-            while (!proxySocket.isClosed()) {
-                dataTrans.setLength(0);
-                while (fromClientToProxy.available() > 0) {
-                    dataTrans.append(new String(data, "ascii"));
-                }
-                if (dataTrans.length() > 0) {
-                    fromProxyToServer.write(dataTrans.toString().getBytes("ascii"));
-                    fromProxyToServer.flush();
-                }
-             */
-//                System.out.println(dataTrans.toString());
-
-//            while (fromServerToProxy.read(data) > 0) {
             int read = fromServerToProxy.read(data);
             while (read != -1) {
-//                System.out.println(new String(data, "ascii"));
-//                fromProxyToClient.write(new String(data, "ascii").getBytes("ascii"));
-//                fromServerToPr
-// oxy.read(data);
                 fromProxyToClient.write(data, 0, read);
                 fromProxyToClient.flush();
                 read = fromServerToProxy.read(data);
@@ -232,8 +262,6 @@ public class ProxyThread extends Thread {
 
             closeSocket(this.socket);
             closeSocket(proxySocket);
-
-            //}
 
         } catch (Exception e) {
             e.printStackTrace();
