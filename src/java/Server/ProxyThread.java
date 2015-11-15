@@ -4,7 +4,13 @@ import java.io.*;
 import java.net.ProxySelector;
 import java.net.Socket;
 import java.net.URL;
+import java.nio.ByteBuffer;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
+import java.nio.channels.SocketChannel;
+import java.util.Iterator;
 import java.util.Scanner;
+import java.util.Set;
 import java.util.concurrent.RecursiveAction;
 import Utils.*;
 
@@ -86,9 +92,12 @@ public class ProxyThread extends Thread {
 
         DataOutputStream fromProxyToClient;
         Socket proxySocket = null;
+        SocketChannel proxyChannel;
+        SocketChannel clientChannel;
+        Selector selector;
         try {
             fromProxyToClient = new DataOutputStream(this.socket.getOutputStream());
-
+            selector = Selector.open();
             try {
                 proxySocket = new Socket(host, port);
             } catch (Exception e) {
@@ -97,252 +106,61 @@ public class ProxyThread extends Thread {
 
             assert (proxySocket != null);
 
+            // Send 200 message to client
             fromProxyToClient.write("HTTP/1.0 200\r\n\r\n".getBytes("ascii"),
                     0, "HTTP/1.0 200\r\n\r\n".length());
             fromProxyToClient.flush();
 
-            DataInputStream fromClientToProxy = new DataInputStream(this.socket.getInputStream());
-//            InputStream fromClientToProxy = this.socket.getInputStream();
-//            BufferedReader fromClientToProxy = new BufferedReader(new InputStreamReader(this.socket.getInputStream()));
-//            BufferedInputStream fromClientToProxy = new BufferedInputStream(socket.getInputStream());
+            // Create channels and make them unblock
+            proxyChannel = SocketChannel.open(proxySocket.getRemoteSocketAddress());
+            clientChannel = SocketChannel.open(this.socket.getRemoteSocketAddress());
 
+            proxyChannel.configureBlocking(false);
+            clientChannel.configureBlocking(false);
 
+            int proxyOps = proxyChannel.validOps();
+            int clientOps = clientChannel.validOps();
+            SelectionKey selectKeyProxy = proxyChannel.register(selector, proxyOps);
+            SelectionKey selectKeyClient = clientChannel.register(selector, clientOps);
 
-
-            byte[] data = new byte[10 * DEFAULT_PACKET_SIZE];
-            DataOutputStream fromProxyToServer = new DataOutputStream(proxySocket.getOutputStream());
-            DataInputStream fromServerToProxy = new DataInputStream(proxySocket.getInputStream());
-//            InputStream fromServerToProxy = proxySocket.getInputStream();
-//            BufferedReader fromServerToProxy = new BufferedReader(new InputStreamReader(proxySocket.getInputStream()));
-
-//            BufferedInputStream fromServerToProxy = new BufferedInputStream(proxySocket.getInputStream());
-
-            String line;
-            StringBuilder everything = new StringBuilder();
+            // Start tunneling
             while (true) {
-//                System.out.println("shit");
-//                everything.setLength(0);
-//
-//                while (!(line = fromClientToProxy.readLine()).equals("")) {
-//                    System.out.println(line);
-//                    everything.append(line);
-//                }
-//                if (everything.length() > 0) {
-//                    fromProxyToServer.write(everything.toString().getBytes("ascii"));
-//                    fromProxyToServer.flush();
-//                }
-//                System.out.println("shit");
-//
-//                while (!(line = fromServerToProxy.readLine()).equals("")) {
-//                    fromProxyToClient.write(line.getBytes("ascii"));
-//                    fromProxyToClient.flush();
-//                }
+                System.out.println("Waiting for select...");
+                int readyChannel = selector.select();
+                if (readyChannel == 0) continue;
+                Set<SelectionKey> selectedKeys = selector.selectedKeys();
+                Iterator<SelectionKey> iter = selectedKeys.iterator();
 
-                StringBuilder req = new StringBuilder();
+                while (iter.hasNext()) {
+                    SelectionKey key = iter.next();
 
-                socket.setSoTimeout(1000);
-
-                try {
-                    int read = fromClientToProxy.read(data);
-
-                    while (read > 0) {
-                        req.append(new String(data, 0, read, "ascii"));
-                        read = fromClientToProxy.read(data);
+                    if (key.isReadable()) {
+                        SocketChannel readFromChannel = (SocketChannel) key.channel();
+                        ByteBuffer buffer = ByteBuffer.allocate(DEFAULT_PACKET_SIZE);
+                        SocketChannel writeToChannel;
+                        if (readFromChannel.equals(proxyChannel)) {
+                            // Reading from proxy and write to client
+                            writeToChannel = clientChannel;
+                        } else {
+                            // Reading from client and write to proxy
+                            writeToChannel = proxyChannel;
+                        }
+                        int readCount = readFromChannel.read(buffer);
+                        while (readCount > 0 || readCount != -1) {
+                            System.out.println("Writing: " + new String(buffer.array(), "ASCII"));
+                            writeToChannel.write(buffer);
+                        }
                     }
-                    System.out.println(req);
 
-                } catch (Exception e) {
-
-                    System.out.print("To Client Socket: ");
-                    System.out.println(e);
+                    iter.remove();
                 }
-
-                if (req.length() > 0) {
-                    fromProxyToServer.write(req.toString().getBytes("ascii"));
-                    fromProxyToServer.flush();
-                }
-
-                proxySocket.setSoTimeout(1000);
-                try {
-                    int read = fromServerToProxy.read(data);
-                    while (read > 0) {
-                        System.out.println(new String(data, 0, read));
-                        fromProxyToClient.write(data, 0, read);
-                        fromProxyToClient.flush();
-                        read = fromServerToProxy.read(data);
-                    }
-                } catch (Exception e) {
-                    System.out.print("To Server Socket: ");
-                    System.out.println(e);
-
-                }
-
-
             }
 
-            /*
-            while (!proxySocket.isClosed()) {
-                int read = fromClientToProxy.read(data);
-                req.setLength(0);
-                while (read != -1) {
-                    System.out.println(read);
-                    req.append(new String(data, 0, read, "ascii"));
-                    if (fromClientToProxy.available() > 0)
-                        read = fromClientToProxy.read(data);
-                    else
-                        break;
-                }
-                System.out.println(req.toString());
-
-                if (req.length() != 0) {
-                    fromProxyToServer.write(req.toString().getBytes("ascii"));
-                    fromProxyToServer.flush();
-                }
-
-                read = fromClientToProxy.read(data);
-
-                while (read != -1) {
-                    fromProxyToClient.write(data, 0, read);
-                    fromProxyToClient.flush();
-                    if (fromServerToProxy.available() > 0)
-                        read = fromServerToProxy.read(data);
-                    else
-                        break;
-                }
-            }
-                InputStream clientReader = socket.getInputStream();
-				InputStream serverReader = proxySocket.getInputStream();
-				DataOutputStream clientStreamer = new DataOutputStream(socket.getOutputStream());
-				DataOutputStream serverStreamer = new DataOutputStream(proxySocket.getOutputStream());
-
-				while (true)
-				{
-//					System.out.println("start");
-					if (clientReader.available() != 0)
-					{
-						byte[] buf = new byte[100];
-						int read = clientReader.read(buf);
-						while (read != -1)
-						{
-							serverStreamer.write(buf, 0, read);
-							serverStreamer.flush();
-							read = serverReader.read(buf);
-						}
-					}
-
-					if (serverReader.available() != 0)
-					{
-						byte[] buf2 = new byte[100];
-						int read2 = serverReader.read(buf2);
-						while (read2 != -1)
-						{
-							clientStreamer.write(buf2, 0, read2);
-							clientStreamer.flush();
-							read2 = serverReader.read(buf2);
-						}
-					}
-//					System.out.println("end");
-				}
-*/
 
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
-
-    /*
-    private void connect(BufferedReader reader, String firstLine) {
-
-        String requestLine = firstLine;
-        StringBuilder fullRequest = new StringBuilder();
-        String host = null;
-        int port = -1;
-
-        try {
-            if (firstLine.contains("HTTP/1.1")) {
-                requestLine = requestLine.replaceAll("HTTP/1.1", "HTTP/1.0");
-            }
-            fullRequest.append(requestLine);
-
-            requestLine = reader.readLine();
-            while (requestLine != null) {
-                if (requestLine.toLowerCase().contains("host")) {
-                    String[] contentSplit = requestLine.split(" ")[1].split(":[0-9]+");
-                    host = contentSplit[0];
-                    try {
-                        port = Integer.parseInt(contentSplit[1]);
-                    } catch (Exception e) {
-                        port = 443;
-                    }
-                    System.out.println(host);
-                } else if (requestLine.toLowerCase().contains("proxy-connection: keep-alive")) {
-                    requestLine = requestLine.replaceAll("keep-alive", "close");
-                } else if (requestLine.toLowerCase().contains("connection: keep-alive")) {
-                    requestLine = requestLine.replaceAll("keep-alive", "close");
-                } else if (requestLine.equals("")) {
-                    break;
-                }
-                fullRequest.append(requestLine + "\r\n");
-                requestLine = reader.readLine();
-            }
-            fullRequest.append("\r\n");
-
-            System.out.println(fullRequest);
-            assert(host != null);
-
-            DataInputStream clientToProxy = new DataInputStream(socket.getInputStream());
-            DataOutputStream proxyToClient = new DataOutputStream(socket.getOutputStream());
-            proxyToClient.write("HTTP/1.0 200 OK\r\n\r\n".getBytes("ascii"));
-
-            Socket proxySocket = null;
-            try {
-                proxySocket = new Socket(host, port);
-            } catch (Exception pse) {
-                socket.getOutputStream().write("HTTP/1.1 502 BAD GATEWAY\r\n\r\n".getBytes("ascii"));
-                closeSocket();
-                return;
-            }
-
-            DataOutputStream proxyToServer = new DataOutputStream(proxySocket.getOutputStream());
-            DataInputStream serverToProxy = new DataInputStream(proxySocket.getInputStream());
-
-//            proxyToServer.write(fullRequest.toString().getBytes("ascii"));
-            System.out.println(proxySocket.isClosed());
-
-            byte[] data = new byte[DEFAULT_PACKET_SIZE];
-
-
-            while (true) {  // Need to be changed
-                String response = "";
-                while (clientToProxy.read(data) > 0) {
-                    response += new String(data, "ascii");
-                    proxyToServer.write(data);
-                }
-                System.out.println(response);
-
-//                response = "";
-                while (serverToProxy.read(data) > 0) {
-                    response += new String(data, "ascii");
-                    proxyToClient.write(data);
-                }
-                System.out.println(response);
-            }
-
-
-
-//            String line = reader.readLine();
-//            while (line != null) {
-//                System.out.println(line);
-//                line = reader.readLine();
-//            }
-
-        } catch (Exception e) {
-            OUTPUT.println("Unexpected Exception: " + e.getMessage());
-
-            closeSocket();
-            e.printStackTrace();
-        }
-    }*/
 
     private void nonConnect(String host, int port, String fullRequest) {
         try {
