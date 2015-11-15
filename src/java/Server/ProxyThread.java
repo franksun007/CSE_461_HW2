@@ -140,22 +140,17 @@ public class ProxyThread extends Thread {
 //                }
 
                 StringBuilder req = new StringBuilder();
-                int read = fromClientToProxy.available();
-                if (read > 0) {
-                    read = fromClientToProxy.read(data, 0, read);
-                    req.append(new String(data, 0, read, "ascii"));
-                }
+                socket.setSoTimeout(100);
+                int read = fromClientToProxy.read(data);
+                req.append(new String(data, 0, read, "ascii"));
                 if (req.length() > 0) {
                     fromProxyToServer.write(req.toString().getBytes("ascii"));
                     fromProxyToServer.flush();
                 }
-
-                read = fromServerToProxy.available();
-                if (read > 0) {
+                proxySocket.setSoTimeout(100);
                     read = fromServerToProxy.read(data);
                     fromProxyToClient.write(data, 0, read);
                     fromProxyToClient.flush();
-                }
 
 
             }
