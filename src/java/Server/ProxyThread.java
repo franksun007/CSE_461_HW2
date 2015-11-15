@@ -92,32 +92,85 @@ public class ProxyThread extends Thread {
             try {
                 proxySocket = new Socket(host, port);
             } catch (Exception e) {
-                fromProxyToClient.write("HTTP/1.1 502 BAD GATEWAY\r\n\r\n".getBytes("ascii"));
+                fromProxyToClient.write("HTTP/1.0 502 BAD GATEWAY\r\n\r\n".getBytes("ascii"));
             }
 
             System.out.println("Socket established");
             assert (proxySocket != null);
 
-            fromProxyToClient.write("HTTP/1.0 200 OK\r\n\r\n".getBytes("ascii"));
+            fromProxyToClient.write("HTTP/1.0 200\r\n\r\n".getBytes("ascii"),
+                    0, "HTTP/1.0 200\r\n\r\n".length());
             fromProxyToClient.flush();
 
-            InputStream fromClientToProxy = this.socket.getInputStream();
+//            DataInputStream fromClientToProxy = new DataInputStream(this.socket.getInputStream());
+//            InputStream fromClientToProxy = this.socket.getInputStream();
+//            BufferedReader fromClientToProxy = new BufferedReader(new InputStreamReader(this.socket.getInputStream()));
+            BufferedInputStream fromClientToProxy = new BufferedInputStream(socket.getInputStream());
 
-            byte[] data = new byte[DEFAULT_PACKET_SIZE];
+
+
+
+            byte[] data = new byte[10 * DEFAULT_PACKET_SIZE];
             DataOutputStream fromProxyToServer = new DataOutputStream(proxySocket.getOutputStream());
-            InputStream fromServerToProxy = proxySocket.getInputStream();
+//            DataInputStream fromServerToProxy = new DataInputStream(proxySocket.getInputStream());
+//            InputStream fromServerToProxy = proxySocket.getInputStream();
+//            BufferedReader fromServerToProxy = new BufferedReader(new InputStreamReader(proxySocket.getInputStream()));
 
-            StringBuilder req = new StringBuilder();
+            BufferedInputStream fromServerToProxy = new BufferedInputStream(proxySocket.getInputStream());
 
+            String line;
+            StringBuilder everything = new StringBuilder();
+            while (true) {
+//                System.out.println("shit");
+//                everything.setLength(0);
+//
+//                while (!(line = fromClientToProxy.readLine()).equals("")) {
+//                    System.out.println(line);
+//                    everything.append(line);
+//                }
+//                if (everything.length() > 0) {
+//                    fromProxyToServer.write(everything.toString().getBytes("ascii"));
+//                    fromProxyToServer.flush();
+//                }
+//                System.out.println("shit");
+//
+//                while (!(line = fromServerToProxy.readLine()).equals("")) {
+//                    fromProxyToClient.write(line.getBytes("ascii"));
+//                    fromProxyToClient.flush();
+//                }
+
+                StringBuilder req = new StringBuilder();
+                int read = fromClientToProxy.available();
+                if (read > 0) {
+                    read = fromClientToProxy.read(data, 0, read);
+                    req.append(new String(data, 0, read, "ascii"));
+                }
+                if (req.length() > 0) {
+                    fromProxyToServer.write(req.toString().getBytes("ascii"));
+                    fromProxyToServer.flush();
+                }
+
+                read = fromServerToProxy.available();
+                if (read > 0) {
+                    read = fromServerToProxy.read(data);
+                    fromProxyToClient.write(data, 0, read);
+                    fromProxyToClient.flush();
+                }
+
+
+            }
+
+            /*
             while (!proxySocket.isClosed()) {
                 int read = fromClientToProxy.read(data);
                 req.setLength(0);
                 while (read != -1) {
                     System.out.println(read);
                     req.append(new String(data, 0, read, "ascii"));
-                    System.out.println("wtf");
-                    read = fromClientToProxy.read(data);
-                    System.out.println(read);
+                    if (fromClientToProxy.available() > 0)
+                        read = fromClientToProxy.read(data);
+                    else
+                        break;
                 }
                 System.out.println(req.toString());
 
@@ -126,16 +179,51 @@ public class ProxyThread extends Thread {
                     fromProxyToServer.flush();
                 }
 
-                System.out.println("WHAT THE FUCK");
                 read = fromClientToProxy.read(data);
 
                 while (read != -1) {
                     fromProxyToClient.write(data, 0, read);
                     fromProxyToClient.flush();
-                    read = fromServerToProxy.read(data);
+                    if (fromServerToProxy.available() > 0)
+                        read = fromServerToProxy.read(data);
+                    else
+                        break;
                 }
             }
+                InputStream clientReader = socket.getInputStream();
+				InputStream serverReader = proxySocket.getInputStream();
+				DataOutputStream clientStreamer = new DataOutputStream(socket.getOutputStream());
+				DataOutputStream serverStreamer = new DataOutputStream(proxySocket.getOutputStream());
 
+				while (true)
+				{
+//					System.out.println("start");
+					if (clientReader.available() != 0)
+					{
+						byte[] buf = new byte[100];
+						int read = clientReader.read(buf);
+						while (read != -1)
+						{
+							serverStreamer.write(buf, 0, read);
+							serverStreamer.flush();
+							read = serverReader.read(buf);
+						}
+					}
+
+					if (serverReader.available() != 0)
+					{
+						byte[] buf2 = new byte[100];
+						int read2 = serverReader.read(buf2);
+						while (read2 != -1)
+						{
+							clientStreamer.write(buf2, 0, read2);
+							clientStreamer.flush();
+							read2 = serverReader.read(buf2);
+						}
+					}
+//					System.out.println("end");
+				}
+*/
 
         } catch (Exception e) {
             e.printStackTrace();
