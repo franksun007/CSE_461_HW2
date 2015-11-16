@@ -84,7 +84,7 @@ public class ProxyThread extends Thread {
 
     private void connect(String host, int port) {
 
-        final OutputStream fromProxyToClient;
+        OutputStream fromProxyToClient;
         Socket proxySocket = null;
         try {
             fromProxyToClient = this.socket.getOutputStream();
@@ -102,7 +102,7 @@ public class ProxyThread extends Thread {
             fromProxyToClient.flush();
 
             //DataInputStream fromClientToProxy = new DataInputStream(this.socket.getInputStream());
-             final InputStream fromClientToProxy = this.socket.getInputStream();
+             InputStream fromClientToProxy = this.socket.getInputStream();
 //            BufferedReader fromClientToProxy = new BufferedReader(new InputStreamReader(this.socket.getInputStream()));
 //            BufferedInputStream fromClientToProxy = new BufferedInputStream(socket.getInputStream());
 
@@ -111,9 +111,9 @@ public class ProxyThread extends Thread {
 
            // byte[] data = new byte[10 * DEFAULT_PACKET_SIZE];
             //final DataOutputStream fromProxyToServer = new DataOutputStream(proxySocket.getOutputStream());
-             final OutputStream fromProxyToServer = proxySocket.getOutputStream();
+             OutputStream fromProxyToServer = proxySocket.getOutputStream();
             //DataInputStream fromServerToProxy = new DataInputStream(proxySocket.getInputStream());
-            final InputStream fromServerToProxy = proxySocket.getInputStream();
+            InputStream fromServerToProxy = proxySocket.getInputStream();
 //            BufferedReader fromServerToProxy = new BufferedReader(new InputStreamReader(proxySocket.getInputStream()));
 
 //            BufferedInputStream fromServerToProxy = new BufferedInputStream(proxySocket.getInputStream());
@@ -138,22 +138,17 @@ public class ProxyThread extends Thread {
 //                    fromProxyToClient.write(line.getBytes("ascii"));
 //                    fromProxyToClient.flush();
 //                }
-
-                StringBuilder req = new StringBuilder();
-
+               // StringBuilder req = new StringBuilder();
 //                socket.setSoTimeout(1000);
-
-
-              Runnable r = new Runnable() {
-
+           /*   Runnable r = new Runnable() {
                   public void run() {
                      // StringBuilder req = new StringBuilder();
                       try {
-
                          // byte[] data = new byte[DEFAULT_PACKET_SIZE];
                           int read;
                           //req.setLength(0);
-                          while ((read = fromClientToProxy.read()) > 0) {
+                          while ((read = fromClientToProxy.read()) != 0) {
+                              System.out.println(read);
                               fromProxyToServer.write(read);
                               //req.append(new String(data, 0, read, "ascii"));
                              // fromProxyToServer.write(req.toString().getBytes("ascii"));
@@ -161,16 +156,14 @@ public class ProxyThread extends Thread {
                           }
                           //System.out.println(req);
                       } catch (Exception e) {
-
-
-                          System.out.print("To Client Socket: ");
+                          System.out.print("From CLIENT Socket: ");
                           System.out.println(e);
-                      }}
+                      }
+                  }
               };
 
             (new Thread(r)).start();
 
-            System.out.println("haha");
 
             Runnable r2 = new Runnable() {
                 public void run() {
@@ -180,7 +173,8 @@ public class ProxyThread extends Thread {
                         //byte[] data = new byte[DEFAULT_PACKET_SIZE];
                         int read;
                         //req.setLength(0);
-                        while ((read = fromServerToProxy.read()) > 0) {
+                        while ((read = fromServerToProxy.read()) != 0) {
+                            System.out.println(read);
                             fromProxyToClient.write(read);
                             //req.append(new String(data, 0, read, "ascii"));
                            // fromServerToProxy.write(req.toString().getBytes("ascii"));
@@ -189,13 +183,17 @@ public class ProxyThread extends Thread {
                        // System.out.println(req);
                     } catch (Exception e) {
 
-
-                        System.out.print("To Client Socket: ");
+                        System.out.print("From SERVER Socket: ");
                         System.out.println(e);
-                    }}
+                    }
+                }
                 };
 
             (new Thread(r2)).start();
+            */
+
+            (new ProxyThreadConnect(fromClientToProxy, fromProxyToServer, "CLIENT")).start();
+            (new ProxyThreadConnect(fromServerToProxy, fromProxyToServer, "SERVER")).start();
 
         /*
 
