@@ -1,21 +1,16 @@
 package Server;
 
+import Utils.Utilities;
+
 import java.io.*;
 import java.net.InetSocketAddress;
-import java.net.ProxySelector;
 import java.net.Socket;
-import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
-import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
-import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
-import java.util.Scanner;
 import java.util.Set;
-import java.util.concurrent.RecursiveAction;
-import Utils.*;
 
 /**
  * Created by chenfs on 11/8/15.
@@ -38,8 +33,6 @@ public class ProxyThread extends Thread {
     public void run() {
         assert (socket != null);
         try {
-
-
             BufferedReader readIn = new BufferedReader(new InputStreamReader(socket.socket().getInputStream()));
             String firstLine = readIn.readLine();
             if (firstLine == null) {
@@ -94,9 +87,6 @@ public class ProxyThread extends Thread {
     }
 
     private void connect(String host, int port) {
-
-
-
         Socket proxySocket = null;
         SocketChannel proxyChannel;
         SocketChannel browserChannel = this.socket;
@@ -104,51 +94,29 @@ public class ProxyThread extends Thread {
         boolean isConnected = false;
         ByteBuffer buffer = ByteBuffer.allocate(DEFAULT_PACKET_SIZE);
         String msg502 = "HTTP/1.0 502 BAD GATEWAY\r\n\r\n";
+        String msg200 = "HTTP/1.1 200 OK\r\n\r\n";
 
         try {
-
-
             proxyChannel = SocketChannel.open();
             isConnected = proxyChannel.connect(new InetSocketAddress(host, port));
-
-            System.out.println("Fuckt the shit");
-           // buffer.put(msg502.getBytes());
-
-            System.out.println(isConnected);
-
             if (!isConnected) {
-                browserChannel.write(buffer);
+                browserChannel.write(buffer.put(msg502.getBytes("ascii")));
+                buffer.flip();
             }
 
+            // Sends the 200 msg to browser
+//            (new DataOutputStream(socket.socket().getOutputStream())).write("HTTP/1.1 200 OK\r\n\r\n".getBytes("ascii"));
 
-            (new DataOutputStream(socket.socket().getOutputStream())).write("HTTP/1.1 200 OK\r\n\r\n".getBytes("ascii"));
             browserChannel.configureBlocking(false);
             proxyChannel.configureBlocking(false);
             selector = Selector.open();
-            SelectionKey selectKeyProxy = proxyChannel.register(selector, SelectionKey.OP_READ);
-            SelectionKey selectKeyBrowser = browserChannel.register(selector, SelectionKey.OP_READ);
+            proxyChannel.register(selector, SelectionKey.OP_READ);
+            browserChannel.register(selector, SelectionKey.OP_READ);
 
+            browserChannel.write(buffer.put(msg200.getBytes("ascii")));
+            buffer.flip();
 
-            System.out.println("Fuckt the shit");
             assert (proxySocket != null);
-
-
-            // Send 200 message to client
-    //        String msg200 = "200 OK\r\n\r\n";
-            //browserChannel.write(buffer.put(msg200.getBytes("ascii"), 0, msg200.length()));
-            //(new DataOutputStream(browserChannel.socket().getOutputStream())).write(msg200.getBytes("ascii"));
-            //(new DataOutputStream(browserChannel.socket().getOutputStream())).flush();
-
-          //  buffer.clear();
-         //   buffer.put(msg200.getBytes(), 0, msg200.length());
-         //   buffer.flip();
-//
-        //    while (buffer.hasRemaining()) {
-         //       browserChannel.write(buffer);
-         //   }
-
-       //     System.out.println("Sleeping");
-
             assert (proxyChannel.isConnected() && browserChannel.isConnected());
 
             // Start tunneling
@@ -173,28 +141,20 @@ public class ProxyThread extends Thread {
                         }
                         int readCount = readFromChannel.read(buffer);
 
-                        //System.out.println("readcount is " + readCount);
                         while (readCount > 0) {
                             buffer.flip();
-
-
-
-
                             while (buffer.hasRemaining()) {
                                 writeToChannel.write(buffer);
                             }
                             buffer.flip();
                             readCount = readFromChannel.read(buffer);
-
                         }
                     }
-
                     iter.remove();
                 }
             }
-
-
         } catch (Exception e) {
+            closeSocket(this.socket);
             e.printStackTrace();
         }
     }
@@ -222,10 +182,8 @@ public class ProxyThread extends Thread {
                 read = fromServerToProxy.read(data);
             }
 
-
             closeSocket(this.socket);
             proxySocket.close();
-
         } catch (Exception e) {
             e.printStackTrace();
         }
