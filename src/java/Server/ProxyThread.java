@@ -1,12 +1,14 @@
 package Server;
 
 import java.io.*;
+import java.net.InetSocketAddress;
 import java.net.ProxySelector;
 import java.net.Socket;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
+import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.Iterator;
 import java.util.Scanner;
@@ -20,12 +22,14 @@ import Utils.*;
 public class ProxyThread extends Thread {
 
     private Socket socket;
+    private int serverPort;
     public static final int DEFAULT_PACKET_SIZE = 1024;
     public static final PrintStream OUTPUT = Proxy.OUTPUT;
 
-    public ProxyThread(Socket socket) {
+    public ProxyThread(Socket socket, int serverPort) {
         if (socket != null) {
             this.socket = socket;
+            this.serverPort = serverPort;
         } else {
             OUTPUT.println("Socket is null");
         }
@@ -90,19 +94,30 @@ public class ProxyThread extends Thread {
 
     private void connect(String host, int port) {
 
-        DataOutputStream fromProxyToClient;
+
         Socket proxySocket = null;
         SocketChannel proxyChannel;
-        SocketChannel clientChannel;
+        ServerSocketChannel clientChannel;
         Selector selector;
+        boolean isConnected = false;
+        String msg502 = "HTTP/1.0 502 BAD GATEWAY\r\n\r\n";
+
+
         try {
-            fromProxyToClient = new DataOutputStream(this.socket.getOutputStream());
-            selector = Selector.open();
-            try {
-                proxySocket = new Socket(host, port);
-            } catch (Exception e) {
-                fromProxyToClient.write("HTTP/1.0 502 BAD GATEWAY\r\n\r\n".getBytes("ascii"));
+            clientChannel = ServerSocketChannel.open();
+            clientChannel = clientChannel.bind(new InetSocketAddress(serverPort));
+
+            proxyChannel = SocketChannel.open();
+            isConnected = proxyChannel.connect(new InetSocketAddress(host, port));
+            if (!isConnected) {
+
             }
+
+            selector = Selector.open();
+
+        } catch (Exception e) {
+            clientChannel.write(
+        }
 
             assert (proxySocket != null);
 
@@ -111,9 +126,6 @@ public class ProxyThread extends Thread {
             fromProxyToClient.write(msg.getBytes("ascii"), 0, msg.length());
             fromProxyToClient.flush();
 
-            // Create channels and make them unblock
-            proxyChannel = SocketChannel.open(proxySocket.getRemoteSocketAddress());
-            clientChannel = SocketChannel.open(this.socket.getLocalSocketAddress());
 
             proxyChannel.configureBlocking(false);
             clientChannel.configureBlocking(false);

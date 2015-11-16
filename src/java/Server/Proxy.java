@@ -54,7 +54,7 @@ public class Proxy {
         try {
             for (; ; ) {
                 Socket communicationSocket = mainSocket.accept();
-                (new ProxyThread(communicationSocket)).start();
+                (new ProxyThread(communicationSocket, serverPort)).start();
             }
         } catch (Exception e) {
             OUTPUT.println("Unexpected IO Exception");
