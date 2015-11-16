@@ -4,10 +4,9 @@ package Server;
 import Utils.Utilities;
 
 import java.io.PrintStream;
-import java.net.InetAddress;
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.net.UnknownHostException;
+import java.net.*;
+import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.SocketChannel;
 
 public class Proxy {
 
@@ -32,9 +31,10 @@ public class Proxy {
             System.exit(1);
         }
 
-        ServerSocket mainSocket = null;
+        ServerSocketChannel mainSocket = null;
         try {
-            mainSocket = new ServerSocket(serverPort);
+            mainSocket = ServerSocketChannel.open();
+            mainSocket.bind(new InetSocketAddress(serverPort));
         } catch (Exception e) {
             OUTPUT.println("Server Socket cannot be created");
             e.printStackTrace();
@@ -52,9 +52,9 @@ public class Proxy {
         }
 
         try {
-            for (; ; ) {
-                Socket communicationSocket = mainSocket.accept();
-                (new ProxyThread(communicationSocket, serverPort)).start();
+            for ( ; ; ) {
+                SocketChannel communicationSocket = mainSocket.accept();
+                (new ProxyThread(communicationSocket)).start();
             }
         } catch (Exception e) {
             OUTPUT.println("Unexpected IO Exception");
