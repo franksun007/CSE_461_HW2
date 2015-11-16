@@ -10,6 +10,7 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
+import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 import java.util.Scanner;
 import java.util.Set;
@@ -125,10 +126,7 @@ public class ProxyThread extends Thread {
             proxyChannel.configureBlocking(false);
             selector = Selector.open();
             SelectionKey selectKeyProxy = proxyChannel.register(selector, SelectionKey.OP_READ);
-            SelectionKey selectKeyBrowser = browserChannel.register(selector, SelectionKey.OP_READ);    System.out.println("Fuckt the shit 200");
-
-
-
+            SelectionKey selectKeyBrowser = browserChannel.register(selector, SelectionKey.OP_READ);
 
 
             System.out.println("Fuckt the shit");
@@ -173,16 +171,21 @@ public class ProxyThread extends Thread {
                             // Reading from client and write to proxy
                             writeToChannel = proxyChannel;
                         }
-                        //buffer.clear();
                         int readCount = readFromChannel.read(buffer);
+
                         //System.out.println("readcount is " + readCount);
                         while (readCount > 0) {
-                            String shit = writeToChannel == proxyChannel ? "proxyChannel" : "writeToChannel";
-                            System.out.println(shit);
-                            System.out.println("Writing: " + new String(buffer.array(), "ASCII"));
-                            writeToChannel.write(buffer);
-                            //buffer.clear();
+                            buffer.flip();
+
+
+
+
+                            while (buffer.hasRemaining()) {
+                                writeToChannel.write(buffer);
+                            }
+                            buffer.flip();
                             readCount = readFromChannel.read(buffer);
+
                         }
                     }
 
