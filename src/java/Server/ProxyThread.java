@@ -84,10 +84,10 @@ public class ProxyThread extends Thread {
 
     private void connect(String host, int port) {
 
-        DataOutputStream fromProxyToClient;
+        final OutputStream fromProxyToClient;
         Socket proxySocket = null;
         try {
-            fromProxyToClient = new DataOutputStream(this.socket.getOutputStream());
+            fromProxyToClient = this.socket.getOutputStream();
 
             try {
                 proxySocket = new Socket(host, port);
@@ -101,25 +101,26 @@ public class ProxyThread extends Thread {
                     0, "HTTP/1.0 200\r\n\r\n".length());
             fromProxyToClient.flush();
 
-            DataInputStream fromClientToProxy = new DataInputStream(this.socket.getInputStream());
-//            InputStream fromClientToProxy = this.socket.getInputStream();
+            //DataInputStream fromClientToProxy = new DataInputStream(this.socket.getInputStream());
+             final InputStream fromClientToProxy = this.socket.getInputStream();
 //            BufferedReader fromClientToProxy = new BufferedReader(new InputStreamReader(this.socket.getInputStream()));
 //            BufferedInputStream fromClientToProxy = new BufferedInputStream(socket.getInputStream());
 
 
 
 
-            byte[] data = new byte[10 * DEFAULT_PACKET_SIZE];
-            DataOutputStream fromProxyToServer = new DataOutputStream(proxySocket.getOutputStream());
-            DataInputStream fromServerToProxy = new DataInputStream(proxySocket.getInputStream());
-//            InputStream fromServerToProxy = proxySocket.getInputStream();
+           // byte[] data = new byte[10 * DEFAULT_PACKET_SIZE];
+            //final DataOutputStream fromProxyToServer = new DataOutputStream(proxySocket.getOutputStream());
+             final OutputStream fromProxyToServer = proxySocket.getOutputStream();
+            //DataInputStream fromServerToProxy = new DataInputStream(proxySocket.getInputStream());
+            final InputStream fromServerToProxy = proxySocket.getInputStream();
 //            BufferedReader fromServerToProxy = new BufferedReader(new InputStreamReader(proxySocket.getInputStream()));
 
 //            BufferedInputStream fromServerToProxy = new BufferedInputStream(proxySocket.getInputStream());
 
-            String line;
-            StringBuilder everything = new StringBuilder();
-            while (true) {
+           // String line;
+            //StringBuilder everything = new StringBuilder();
+           // while (true) {
 //                System.out.println("shit");
 //                everything.setLength(0);
 //
@@ -140,29 +141,65 @@ public class ProxyThread extends Thread {
 
                 StringBuilder req = new StringBuilder();
 
-                socket.setSoTimeout(1000);
+//                socket.setSoTimeout(1000);
 
-                try {
-                    int read = fromClientToProxy.read(data);
 
-                    while (read > 0) {
-                        req.append(new String(data, 0, read, "ascii"));
-                        read = fromClientToProxy.read(data);
-                    }
-                    System.out.println(req);
+              Runnable r = new Runnable() {
 
-                } catch (Exception e) {
+                  public void run() {
+                     // StringBuilder req = new StringBuilder();
+                      try {
 
-                    System.out.print("To Client Socket: ");
-                    System.out.println(e);
-                }
+                         // byte[] data = new byte[DEFAULT_PACKET_SIZE];
+                          int read;
+                          //req.setLength(0);
+                          while ((read = fromClientToProxy.read()) > 0) {
+                              fromProxyToServer.write(read);
+                              //req.append(new String(data, 0, read, "ascii"));
+                             // fromProxyToServer.write(req.toString().getBytes("ascii"));
+                             // fromProxyToServer.flush();
+                          }
+                          //System.out.println(req);
+                      } catch (Exception e) {
 
-                if (req.length() > 0) {
-                    fromProxyToServer.write(req.toString().getBytes("ascii"));
-                    fromProxyToServer.flush();
-                }
 
-                proxySocket.setSoTimeout(1000);
+                          System.out.print("To Client Socket: ");
+                          System.out.println(e);
+                      }}
+              };
+
+            (new Thread(r)).start();
+
+            System.out.println("haha");
+
+            Runnable r2 = new Runnable() {
+                public void run() {
+                   // StringBuilder req = new StringBuilder();
+                    try {
+
+                        //byte[] data = new byte[DEFAULT_PACKET_SIZE];
+                        int read;
+                        //req.setLength(0);
+                        while ((read = fromServerToProxy.read()) > 0) {
+                            fromProxyToClient.write(read);
+                            //req.append(new String(data, 0, read, "ascii"));
+                           // fromServerToProxy.write(req.toString().getBytes("ascii"));
+                            //fromProxyToClient.flush();
+                        }
+                       // System.out.println(req);
+                    } catch (Exception e) {
+
+
+                        System.out.print("To Client Socket: ");
+                        System.out.println(e);
+                    }}
+                };
+
+            (new Thread(r2)).start();
+
+        /*
+
+//                proxySocket.set/SoTimeout(1000);
                 try {
                     int read = fromServerToProxy.read(data);
                     while (read > 0) {
@@ -176,9 +213,9 @@ public class ProxyThread extends Thread {
                     System.out.println(e);
 
                 }
+*/
 
-
-            }
+           // }
 
             /*
             while (!proxySocket.isClosed()) {
