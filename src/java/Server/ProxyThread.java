@@ -87,25 +87,19 @@ public class ProxyThread extends Thread {
     }
 
     private void connect(String host, int port) {
-        Socket proxySocket = null;
         SocketChannel proxyChannel;
         SocketChannel browserChannel = this.socket;
         Selector selector;
-        boolean isConnected = false;
         ByteBuffer buffer = ByteBuffer.allocate(DEFAULT_PACKET_SIZE);
         String msg502 = "HTTP/1.0 502 BAD GATEWAY\r\n\r\n";
         String msg200 = "HTTP/1.1 200 OK\r\n\r\n";
 
         try {
             proxyChannel = SocketChannel.open();
-            isConnected = proxyChannel.connect(new InetSocketAddress(host, port));
-            if (!isConnected) {
+            if (!proxyChannel.connect(new InetSocketAddress(host, port))) {
                 browserChannel.write(buffer.put(msg502.getBytes("ascii")));
                 buffer.flip();
             }
-
-            // Sends the 200 msg to browser
-//            (new DataOutputStream(socket.socket().getOutputStream())).write("HTTP/1.1 200 OK\r\n\r\n".getBytes("ascii"));
 
             browserChannel.configureBlocking(false);
             proxyChannel.configureBlocking(false);
@@ -113,10 +107,10 @@ public class ProxyThread extends Thread {
             proxyChannel.register(selector, SelectionKey.OP_READ);
             browserChannel.register(selector, SelectionKey.OP_READ);
 
+            // Sends the 200 msg to browser
             browserChannel.write(buffer.put(msg200.getBytes("ascii")));
             buffer.flip();
 
-            assert (proxySocket != null);
             assert (proxyChannel.isConnected() && browserChannel.isConnected());
 
             // Start tunneling
