@@ -26,6 +26,7 @@ public class ProxyThread extends Thread {
             this.socket = socket;
         } else {
             OUTPUT.println("Socket is null");
+            this.interrupt();
         }
     }
 
@@ -39,8 +40,8 @@ public class ProxyThread extends Thread {
                 return;
             }
 
-            OUTPUT.println(Utilities.getCurrentTime() + " - >>> "
-                    + firstLine.substring(0, firstLine.indexOf("HTTP/1.1")));
+            //OUTPUT.println(Utilities.getCurrentTime() + " - >>> "
+            //        + firstLine.substring(0, firstLine.indexOf("HTTP/1.1")));
 
             String requestLine = firstLine;
             StringBuilder fullRequest = new StringBuilder();
@@ -80,9 +81,10 @@ public class ProxyThread extends Thread {
             }
 
         } catch (Exception e) {
-            closeSocket(this.socket);
+            closeSocket(this.socket.socket());
             OUTPUT.println("Unexpected exception");
             OUTPUT.println(e.getMessage());
+            this.interrupt();
         }
     }
 
@@ -144,18 +146,25 @@ public class ProxyThread extends Thread {
                     }
                 }
             } catch(Exception e) {
-                proxyChannel.close();
-                socket.close();
+                closeSocket(proxyChannel.socket());
+                closeSocket(socket.socket());
+                //proxyChannewl.close();
+                //socket.close();
             }
         } catch (Exception e) {
-            closeSocket(this.socket);
+            closeSocket(this.socket.socket());
             OUTPUT.println(e.getMessage());
+        } finally {
+            this.interrupt();
         }
     }
 
     private void nonConnect(String host, int port, String fullRequest) {
+        Socket proxySocket = null;
         try {
-            Socket proxySocket = new Socket(host, port);
+            proxySocket = new Socket(host, port);
+            proxySocket.setSoTimeout(10000);
+            socket.socket().setSoTimeout(10000);
             InputStream fromServerToProxy = proxySocket.getInputStream();
             DataOutputStream fromProxyToServer =
                     new DataOutputStream(proxySocket.getOutputStream());
@@ -170,14 +179,19 @@ public class ProxyThread extends Thread {
                 fromProxyToClient.flush();
                 read = fromServerToProxy.read(data);
             }
-            closeSocket(this.socket);
-            proxySocket.close();
+            closeSocket(this.socket.socket());
+            //proxySocket.close();
+            closeSocket(proxySocket);
         } catch (Exception e) {
+            closeSocket(this.socket.socket());
+            closeSocket(proxySocket);
             OUTPUT.println(e.getMessage());
+        } finally {
+            this.interrupt();
         }
     }
 
-    private void closeSocket(SocketChannel socket) {
+    private void closeSocket(Socket socket) {
         try {
             socket.close();
         } catch (Exception e) {
