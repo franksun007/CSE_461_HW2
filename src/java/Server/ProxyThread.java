@@ -107,13 +107,13 @@ public class ProxyThread extends Thread {
             assert (proxySocket != null);
 
             // Send 200 message to client
-            fromProxyToClient.write("HTTP/1.0 200\r\n\r\n".getBytes("ascii"),
-                    0, "HTTP/1.0 200\r\n\r\n".length());
+            String msg = "HTTP/1.0 200 OK\r\n\r\n";
+            fromProxyToClient.write(msg.getBytes("ascii"), 0, msg.length());
             fromProxyToClient.flush();
 
             // Create channels and make them unblock
             proxyChannel = SocketChannel.open(proxySocket.getRemoteSocketAddress());
-            clientChannel = SocketChannel.open(this.socket.getRemoteSocketAddress());
+            clientChannel = SocketChannel.open(this.socket.getLocalSocketAddress());
 
             proxyChannel.configureBlocking(false);
             clientChannel.configureBlocking(false);
@@ -121,11 +121,12 @@ public class ProxyThread extends Thread {
             int proxyOps = proxyChannel.validOps();
             int clientOps = clientChannel.validOps();
             SelectionKey selectKeyProxy = proxyChannel.register(selector, proxyOps);
-            SelectionKey selectKeyClient = clientChannel.register(selector, clientOps);
+            SelectionKey selectKeyClient = clientChannel.register(selector, SelectionKey.OP_READ);
 
+
+            assert (proxyChannel.isConnected() && clientChannel.isConnected());
             // Start tunneling
             while (true) {
-                System.out.println("Waiting for select...");
                 int readyChannel = selector.select();
                 if (readyChannel == 0) continue;
                 Set<SelectionKey> selectedKeys = selector.selectedKeys();
@@ -146,9 +147,31 @@ public class ProxyThread extends Thread {
                             writeToChannel = proxyChannel;
                         }
                         int readCount = readFromChannel.read(buffer);
+                        System.out.println("readcount is " + readCount);
                         while (readCount > 0 || readCount != -1) {
-                            System.out.println("Writing: " + new String(buffer.array(), "ASCII"));
+                            //System.out.println("Writing: " + new String(buffer.array(), "ASCII"));
                             writeToChannel.write(buffer);
+                            readCount = readFromChannel.read(buffer);
+                        }
+                    } else if (key.isWritable()) {
+                        SocketChannel writeChannel = (SocketChannel) key.channel();
+                        ByteBuffer buffer = ByteBuffer.allocate(DEFAULT_PACKET_SIZE);
+                        SocketChannel readChannel;
+                        if (writeChannel.equals(proxyChannel)) {
+                            // Reading from client and write to proxy
+                            readChannel = clientChannel;
+                            System.out.println("proxy writable");
+                        } else {
+                            // Reading from proxy and write to client
+                            readChannel = proxyChannel;
+                            System.out.println("client writable");
+                        }
+                        int readCount = readChannel.read(buffer);
+                        System.out.println("readCount + " + readCount);
+                        while (readCount > 0 || readCount != -1) {
+                            //System.out.println("Writing: " + new String(buffer.array(), "ASCII"));
+                            writeChannel.write(buffer);
+                            readCount = readChannel.read(buffer);
                         }
                     }
 
