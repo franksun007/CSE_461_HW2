@@ -40,8 +40,8 @@ public class ProxyThread extends Thread {
                 return;
             }
 
-            //OUTPUT.println(Utilities.getCurrentTime() + " - >>> "
-            //        + firstLine.substring(0, firstLine.indexOf("HTTP/1.1")));
+            OUTPUT.println(Utilities.getCurrentTime() + " - >>> "
+                    + firstLine.substring(0, firstLine.indexOf("HTTP/1.1")));
 
             String requestLine = firstLine;
             StringBuilder fullRequest = new StringBuilder();
@@ -65,7 +65,7 @@ public class ProxyThread extends Thread {
                     requestLine = requestLine.replaceAll("keep-alive", "close");
                 } else if (requestLine.toLowerCase().contains("connection: keep-alive")) {
                     requestLine = requestLine.replaceAll("keep-alive", "close");
-                } else if (requestLine.equals("") || requestLine.equals("\r\n")) {
+                } else if (requestLine.isEmpty() || requestLine.equals("\r\n")) {
                     break;
                 }
                 fullRequest.append(requestLine + "\r\n");
@@ -107,8 +107,8 @@ public class ProxyThread extends Thread {
             selector = Selector.open();
             proxyChannel.register(selector, SelectionKey.OP_READ);
             browserChannel.register(selector, SelectionKey.OP_READ);
-            browserChannel.socket().setSoTimeout(1000);
-            proxyChannel.socket().setSoTimeout(1000);
+            //browserChannel.socket().setSoTimeout(1000);
+            //proxyChannel.socket().setSoTimeout(1000);
             // Sends the 200 msg to browser
             browserChannel.write(buffer.put(msg200.getBytes("ascii")));
             buffer.flip();
@@ -148,8 +148,8 @@ public class ProxyThread extends Thread {
             } catch(Exception e) {
                 closeSocket(proxyChannel.socket());
                 closeSocket(socket.socket());
-                //proxyChannewl.close();
-                //socket.close();
+                proxyChannel.close();
+                socket.close();
             }
         } catch (Exception e) {
             closeSocket(this.socket.socket());
@@ -163,8 +163,8 @@ public class ProxyThread extends Thread {
         Socket proxySocket = null;
         try {
             proxySocket = new Socket(host, port);
-            proxySocket.setSoTimeout(10000);
-            socket.socket().setSoTimeout(10000);
+            //proxySocket.setSoTimeout(10000);
+            //socket.socket().setSoTimeout(10000);
             InputStream fromServerToProxy = proxySocket.getInputStream();
             DataOutputStream fromProxyToServer =
                     new DataOutputStream(proxySocket.getOutputStream());
@@ -180,7 +180,7 @@ public class ProxyThread extends Thread {
                 read = fromServerToProxy.read(data);
             }
             closeSocket(this.socket.socket());
-            //proxySocket.close();
+            proxySocket.close();
             closeSocket(proxySocket);
         } catch (Exception e) {
             closeSocket(this.socket.socket());
