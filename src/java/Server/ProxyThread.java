@@ -172,6 +172,26 @@ public class ProxyThread extends Thread {
                     new DataOutputStream(this.socket.socket().getOutputStream());
             fromProxyToServer.write(fullRequest.getBytes("ascii"));
             fromProxyToServer.flush();
+
+            BufferedReader headerReader = new BufferedReader(new InputStreamReader(fromServerToProxy));
+            StringBuffer responseRequest = new StringBuffer();
+            String headerLine = headerReader.readLine();
+            while (headerLine != null) {
+                if (headerLine.toLowerCase().contains("connection: keep-alive")) {
+                    headerLine = headerLine.replaceAll("keep-alive", "close");
+                } else if (headerLine.toLowerCase().contains("proxy-connection: keep-alive")) {
+                    headerLine = headerLine.replaceAll("keep-alive", "close");
+                } else if (headerLine.isEmpty() || headerLine.equals("\r\n")) {
+                        break;
+                }
+                responseRequest.append(headerLine + "\r\n");
+                headerLine = headerReader.readLine();
+            }
+            responseRequest.append("\r\n");
+            System.out.println("response header " + responseRequest.toString() + "\n EOF");
+
+            fromProxyToClient.write(responseRequest);
+
             byte[] data = new byte[DEFAULT_PACKET_SIZE];
             int read = fromServerToProxy.read(data);
             while (read != -1) {
