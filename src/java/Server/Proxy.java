@@ -1,13 +1,14 @@
 package Server;
 
-
 import Utils.Utilities;
-
 import java.io.PrintStream;
 import java.net.*;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 
+/**
+ * This is a proxy class that can perform non-connect and connect requests.
+ */
 public class Proxy {
 
     public static final int DEFAULT_SERVER_PORT = 12435;
@@ -40,7 +41,6 @@ public class Proxy {
             e.printStackTrace();
             System.exit(1);
         }
-
 
         try {
             OUTPUT.println(Utilities.getCurrentTime() + " - Proxy listening on "

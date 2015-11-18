@@ -13,7 +13,7 @@ import java.util.Iterator;
 import java.util.Set;
 
 /**
- * Created by chenfs on 11/8/15.
+ * This class is used by the proxy class so that the proxy class can handle several requests concurrently.
  */
 public class ProxyThread extends Thread {
 
@@ -41,7 +41,7 @@ public class ProxyThread extends Thread {
             }
 
             OUTPUT.println(Utilities.getCurrentTime() + " - >>> "
-                    + firstLine.substring(0, firstLine.indexOf("HTTP/1.1")));
+                    + firstLine.substring(0, firstLine.indexOf("HTTP/1.")));
 
             String requestLine = firstLine;
             StringBuilder fullRequest = new StringBuilder();
@@ -64,6 +64,8 @@ public class ProxyThread extends Thread {
                     host = contentSplit[0];
                     requestLine = requestLine.replaceAll("keep-alive", "close");
                 } else if (requestLine.toLowerCase().contains("connection: keep-alive")) {
+                    requestLine = requestLine.replaceAll("keep-alive", "close");
+                } else if (requestLine.toLowerCase().contains("proxy-connection: keep-alive")) {
                     requestLine = requestLine.replaceAll("keep-alive", "close");
                 } else if (requestLine.isEmpty() || requestLine.equals("\r\n")) {
                     break;
@@ -107,8 +109,7 @@ public class ProxyThread extends Thread {
             selector = Selector.open();
             proxyChannel.register(selector, SelectionKey.OP_READ);
             browserChannel.register(selector, SelectionKey.OP_READ);
-            //browserChannel.socket().setSoTimeout(1000);
-            //proxyChannel.socket().setSoTimeout(1000);
+
             // Sends the 200 msg to browser
             browserChannel.write(buffer.put(msg200.getBytes("ascii")));
             buffer.flip();
@@ -163,8 +164,7 @@ public class ProxyThread extends Thread {
         Socket proxySocket = null;
         try {
             proxySocket = new Socket(host, port);
-            //proxySocket.setSoTimeout(10000);
-            //socket.socket().setSoTimeout(10000);
+
             InputStream fromServerToProxy = proxySocket.getInputStream();
             DataOutputStream fromProxyToServer =
                     new DataOutputStream(proxySocket.getOutputStream());
@@ -172,25 +172,6 @@ public class ProxyThread extends Thread {
                     new DataOutputStream(this.socket.socket().getOutputStream());
             fromProxyToServer.write(fullRequest.getBytes("ascii"));
             fromProxyToServer.flush();
-
-            BufferedReader headerReader = new BufferedReader(new InputStreamReader(fromServerToProxy));
-            StringBuffer responseRequest = new StringBuffer();
-            String headerLine = headerReader.readLine();
-            while (headerLine != null) {
-                if (headerLine.toLowerCase().contains("connection: keep-alive")) {
-                    headerLine = headerLine.replaceAll("keep-alive", "close");
-                } else if (headerLine.toLowerCase().contains("proxy-connection: keep-alive")) {
-                    headerLine = headerLine.replaceAll("keep-alive", "close");
-                } else if (headerLine.isEmpty() || headerLine.equals("\r\n")) {
-                        break;
-                }
-                responseRequest.append(headerLine + "\r\n");
-                headerLine = headerReader.readLine();
-            }
-            responseRequest.append("\r\n");
-            System.out.println("response header " + responseRequest.toString() + "\n EOF");
-
-            fromProxyToClient.write(responseRequest);
 
             byte[] data = new byte[DEFAULT_PACKET_SIZE];
             int read = fromServerToProxy.read(data);
