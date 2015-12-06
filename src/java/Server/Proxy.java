@@ -1,14 +1,14 @@
 package Server;
 
-
 import Utils.Utilities;
-
 import java.io.PrintStream;
-import java.net.InetAddress;
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.net.UnknownHostException;
+import java.net.*;
+import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.SocketChannel;
 
+/**
+ * This is a proxy class that can perform non-connect and connect requests.
+ */
 public class Proxy {
 
     public static final int DEFAULT_SERVER_PORT = 12435;
@@ -32,15 +32,15 @@ public class Proxy {
             System.exit(1);
         }
 
-        ServerSocket mainSocket = null;
+        ServerSocketChannel mainSocket = null;
         try {
-            mainSocket = new ServerSocket(serverPort);
+            mainSocket = ServerSocketChannel.open();
+            mainSocket.bind(new InetSocketAddress(serverPort));
         } catch (Exception e) {
             OUTPUT.println("Server Socket cannot be created");
             e.printStackTrace();
             System.exit(1);
         }
-
 
         try {
             OUTPUT.println(Utilities.getCurrentTime() + " - Proxy listening on "
@@ -52,8 +52,8 @@ public class Proxy {
         }
 
         try {
-            for (; ; ) {
-                Socket communicationSocket = mainSocket.accept();
+            for ( ; ; ) {
+                SocketChannel communicationSocket = mainSocket.accept();
                 (new ProxyThread(communicationSocket)).start();
             }
         } catch (Exception e) {
