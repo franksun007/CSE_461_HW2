@@ -19,6 +19,8 @@ hs_err_pid*
 *.iws
 out*
 target*
+target/*
+./target/*
 
 .idea_modules/
 
